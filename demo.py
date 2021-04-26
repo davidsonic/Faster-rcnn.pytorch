@@ -30,7 +30,8 @@ from roi_data_layer.roidb import combined_roidb
 from roi_data_layer.roibatchLoader import roibatchLoader
 from model.utils.config import cfg, cfg_from_file, cfg_from_list, get_output_dir
 from model.rpn.bbox_transform import clip_boxes
-from model.nms.nms_wrapper import nms
+# from model.nms.nms_wrapper import nms  # 0.4.0 version
+from  model.roi_layers import nms
 from model.rpn.bbox_transform import bbox_transform_inv
 from model.utils.net_utils import save_net, load_net, vis_detections
 from model.utils.blob import im_list_to_blob
@@ -265,12 +266,12 @@ if __name__ == '__main__':
         im_file = os.path.join(args.image_dir, imglist[num_images])
         im = cv2.imread(im_file)
         # im_in = np.array(imread(im_file))
-        if len(im_in.shape) == 2:
-          im_in = im_in[:,:,np.newaxis]
-          im_in = np.concatenate((im_in,im_in,im_in), axis=2)
+        if len(im.shape) == 2:
+          im = im[:,:,np.newaxis]
+          im = np.concatenate((im,im,im), axis=2)
         # rgb -> bgr
         # im_in = im_in[:,:,::-1]
-      im = im_in
+      # im = im #0.4.0 version
 
       blobs, im_scales = _get_image_blob(im)
       assert len(im_scales) == 1, "Only single-image batch implemented"
@@ -281,10 +282,10 @@ if __name__ == '__main__':
       im_data_pt = im_data_pt.permute(0, 3, 1, 2)
       im_info_pt = torch.from_numpy(im_info_np)
 
-      im_data.data.resize_(im_data_pt.size()).copy_(im_data_pt)
-      im_info.data.resize_(im_info_pt.size()).copy_(im_info_pt)
-      gt_boxes.data.resize_(1, 1, 5).zero_()
-      num_boxes.data.resize_(1).zero_()
+      im_data.resize_(im_data_pt.size()).copy_(im_data_pt)
+      im_info.resize_(im_info_pt.size()).copy_(im_info_pt)
+      gt_boxes.resize_(1, 1, 5).zero_()
+      num_boxes.resize_(1).zero_()
 
       # pdb.set_trace()
       det_tic = time.time()
@@ -337,7 +338,7 @@ if __name__ == '__main__':
       if vis:
           im2show = np.copy(im)
       for j in xrange(1, len(pascal_classes)):
-          inds = torch.nonzero(scores[:,j]>thresh).view(-1)
+          inds = torch.nonzero(scores[:,j]>thresh, as_tuple=False).view(-1)
           # if there is det
           if inds.numel() > 0:
             cls_scores = scores[:,j][inds]
@@ -350,7 +351,8 @@ if __name__ == '__main__':
             cls_dets = torch.cat((cls_boxes, cls_scores.unsqueeze(1)), 1)
             # cls_dets = torch.cat((cls_boxes, cls_scores), 1)
             cls_dets = cls_dets[order]
-            keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS)
+            # keep = nms(cls_dets, cfg.TEST.NMS, force_cpu=not cfg.USE_GPU_NMS) # 0.4.0 version
+            keep = nms(cls_dets[:, :4], cls_dets[:, 4], cfg.TEST.NMS)
             cls_dets = cls_dets[keep.view(-1).long()]
             if vis:
               im2show = vis_detections(im2show, pascal_classes[j], cls_dets.cpu().numpy(), 0.5)
