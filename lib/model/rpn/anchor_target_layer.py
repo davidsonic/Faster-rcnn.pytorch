@@ -52,7 +52,6 @@ class _AnchorTargetLayer(nn.Module):
         #   generate 9 anchor boxes centered on cell i
         #   apply predicted bbox deltas at cell i to each of the 9 anchors
         # filter out-of-image anchors
-
         rpn_cls_score = input[0]
         gt_boxes = input[1]
         im_info = input[2]
